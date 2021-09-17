@@ -42,6 +42,39 @@ bool check(const char *line) {
     return true;
 }
 
+int readWord(const char *line, int startIndex, char *word) {
+    char *found = strchr(&line[startIndex], ',');
+    if(found != NULL) {
+        int len = found - &line[startIndex];
+        memcpy(word, &line[startIndex], len);
+        word[len] = '\0';
+    }
+}
+
+bool parse(const char *line) {
+    const char *found = strchr(line, ',');
+    char token[10];
+    int startIndex = 0;
+    readWord(line, startIndex, token);
+    if(strcmp(token, "GNGLL") == 0 || strcmp(token, "GPGGA") == 0) { 
+        //geographic position, latitude / longitude
+        printf("%s\n", line);
+    } else if(strcmp(token, "GNGGA") == 0 || strcmp(token, "GPGGA") == 0) { 
+        //global positioning system fix data
+        printf("%s\n", line);
+    /*} else if(strcmp(token, "GNGSA") == 0) { //GPS DOP and active satelites
+        printf("%s\n", line);
+    } else if(strcmp(token, "GPGSV") == 0) { //GPS satelites in view
+        printf("%s\n", line);*/
+    } else if(strcmp(token, "GNRMC") == 0 || strcmp(token, "GPRMC") == 0) { 
+        //recommended minimum specific GPS/transit data
+        printf("%s\n", line);
+    } else if(strcmp(token, "GNRMC") == 0 || strcmp(token, "GPVTG") == 0) { 
+        //track made good and ground speed
+        printf("%s\n", line);
+    }
+}
+
 int main() {
     bi_decl(bi_program_description("bike"));
     bi_decl(bi_1pin_with_name(UART_RX_GPIO, "GPS UART TX/PICO RX"));
@@ -62,11 +95,11 @@ int main() {
             line[index] = 0;
             if(check(line)) {
                 gpio_put(LED_GPIO, false); // turn off LED
+                parse(line);
             } else {
                 printf("checksum error: %s\n", line);
                 gpio_put(LED_GPIO, true); // turn on LED
             }
-            printf("%s\n", line);
             listen = false;
         }
         if(listen) {
