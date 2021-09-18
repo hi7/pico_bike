@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 #include "pico/stdlib.h"
 #include "pico/binary_info.h"
 #include "hardware/uart.h"
@@ -42,36 +43,75 @@ bool check(const char *line) {
     return true;
 }
 
-int readWord(const char *line, int startIndex, char *word) {
-    char *found = strchr(&line[startIndex], ',');
+int readWord(const char *line, char *word) {
+    char *found = strchr(line, ',');
     if(found != NULL) {
-        int len = found - &line[startIndex];
-        memcpy(word, &line[startIndex], len);
+        int len = found - line;
+        memcpy(word, line, len);
         word[len] = '\0';
+        return len+1; // skip comma
     }
 }
 
+double readDouble(const char *line, double *result) {
+    char *found = strchr(line, ',');
+    char digits[10];
+    if(found != NULL) {
+        int len = found - line;
+        memcpy(digits, line, len);
+        digits[len] = '\0';
+        sscanf(digits, "%lf", result);
+        return len+1; // skip comma
+    }
+}
+
+float readTime(const char *line, float *time) {
+    char *found = strchr(line, ',');
+    char digits[10];
+    if(found != NULL) {
+        int len = found - line;
+        memcpy(digits, line, len);
+        digits[len] = '\0';
+        sscanf(digits, "%f", time);
+        return len+1; // skip comma
+    }
+}
+
+const int timezone = +2; // diff to UTC
 bool parse(const char *line) {
     const char *found = strchr(line, ',');
     char token[10];
-    int startIndex = 0;
-    readWord(line, startIndex, token);
-    if(strcmp(token, "GNGLL") == 0 || strcmp(token, "GPGGA") == 0) { 
+    int startIndex = readWord(&line[0], token);
+    if(strcmp(token, "GNGLL") == 0 || strcmp(token, "GPGLL") == 0) { 
         //geographic position, latitude / longitude
-        printf("%s\n", line);
-    } else if(strcmp(token, "GNGGA") == 0 || strcmp(token, "GPGGA") == 0) { 
+        double latitude;
+        startIndex += readDouble(&line[startIndex], &latitude);
+        char latDir[2];
+        startIndex += readWord(&line[startIndex], latDir);
+        double longitude;
+        startIndex += readDouble(&line[startIndex], &longitude);
+        char longDir[2];
+        startIndex += readWord(&line[startIndex], longDir);
+        float time;
+        startIndex += readTime(&line[startIndex], &time);
+        time += timezone * 10000;
+        int h = (int) time/10000;
+        int min = (int) time/100 - h*100;
+        int sec = (int) time - h*10000 - min * 100;
+        printf("%lf %s %lf %s %d:%d:%d\n", latitude, latDir, longitude, longDir, h, min, sec);
+    /*} else if(strcmp(token, "GNGGA") == 0 || strcmp(token, "GPGGA") == 0) { 
         //global positioning system fix data
         printf("%s\n", line);
-    /*} else if(strcmp(token, "GNGSA") == 0) { //GPS DOP and active satelites
+    } else if(strcmp(token, "GNGSA") == 0) { //GPS DOP and active satelites
         printf("%s\n", line);
     } else if(strcmp(token, "GPGSV") == 0) { //GPS satelites in view
-        printf("%s\n", line);*/
+        printf("%s\n", line);
     } else if(strcmp(token, "GNRMC") == 0 || strcmp(token, "GPRMC") == 0) { 
         //recommended minimum specific GPS/transit data
         printf("%s\n", line);
     } else if(strcmp(token, "GNRMC") == 0 || strcmp(token, "GPVTG") == 0) { 
         //track made good and ground speed
-        printf("%s\n", line);
+        printf("%s\n", line);*/
     }
 }
 
